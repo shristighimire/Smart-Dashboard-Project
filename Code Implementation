@@ -1,0 +1,102 @@
+
+import pandas as pd
+import requests
+from sqlalchemy import create_engine
+
+def fetch_sensor_data():
+    """Fetch simulated sensor data."""
+    url = "https://api.mockiotdata.com/sensors"
+    response = requests.get(url)
+    return response.json()
+
+def process_data(raw_data):
+    """Process and clean raw sensor data."""
+    df = pd.DataFrame(raw_data)
+    df['timestamp'] = pd.to_datetime(df['timestamp'])
+    df = df.sort_values(by='timestamp')
+    return df
+
+def save_to_database(df, db_uri):
+    """Save processed data to a database."""
+    engine = create_engine(db_uri)
+    df.to_sql('sensor_data', engine, if_exists='replace', index=False)
+
+if __name__ == "__main__":
+    raw_data = fetch_sensor_data()
+    processed_data = process_data(raw_data)
+    save_to_database(processed_data, 'sqlite:///data/sensors.db')
+```
+
+### **`ml_modeling.py`**
+```python
+import pandas as pd
+from sklearn.ensemble import RandomForestRegressor
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import mean_squared_error
+
+
+def load_data(db_uri):
+    """Load data from the database."""
+    engine = create_engine(db_uri)
+    query = "SELECT * FROM sensor_data"
+    return pd.read_sql(query, engine)
+
+def train_ml_model(data):
+    """Train a regression model on the data."""
+    X = data.drop(columns=['target', 'timestamp'])
+    y = data['target']
+
+    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+    model = RandomForestRegressor()
+    model.fit(X_train, y_train)
+
+    predictions = model.predict(X_test)
+    error = mean_squared_error(y_test, predictions)
+
+    print(f"Model Mean Squared Error: {error}")
+    return model
+
+if __name__ == "__main__":
+    db_uri = 'sqlite:///data/sensors.db'
+    data = load_data(db_uri)
+    train_ml_model(data)
+```
+
+### **`api_server.py`**
+```python
+from flask import Flask, jsonify, request
+import pandas as pd
+
+app = Flask(__name__)
+
+@app.route('/get-data', methods=['GET'])
+def get_data():
+    """Endpoint to fetch processed data."""
+    data = pd.read_sql("SELECT * FROM sensor_data", 'sqlite:///data/sensors.db')
+    return data.to_json(orient='records')
+
+if __name__ == "__main__":
+    app.run(debug=True)
+
+import dash
+from dash import dcc, html
+import pandas as pd
+import plotly.express as px
+
+app = dash.Dash(__name__)
+
+def fetch_data():
+    """Fetch processed data."""
+    data = pd.read_sql("SELECT * FROM sensor_data", 'sqlite:///data/sensors.db')
+    return data
+
+data = fetch_data()
+fig = px.line(data, x='timestamp', y='target', title='Sensor Data Trends')
+
+app.layout = html.Div([
+    html.H1("Smart Community Dashboard"),
+    dcc.Graph(figure=fig)
+])
+
+if __name__ == "__main__":
+    app.run_server(debug=True)
