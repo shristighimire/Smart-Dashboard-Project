@@ -1,0 +1,9 @@
+smart-community-dashboard/
+|-- data/                     # Data folder for raw and processed data
+|-- scripts/                  # Python scripts for various tasks
+|   |-- data_pipeline.py      # Data pipeline scripts
+|   |-- ml_modeling.py        # Machine learning models
+|   |-- api_server.py         # Backend API server
+|   |-- dashboard.py          # Dashboard visualizations
+|-- requirements.txt          # Required Python packages
+|-- README.md                 # Project documentation
